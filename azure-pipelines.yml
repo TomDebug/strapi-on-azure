@@ -1,0 +1,47 @@
+trigger:
+  - main
+
+resources:
+  - repo: self
+
+variables:
+  # Agent VM image name
+  vmImageName: "windows-latest"
+
+stages:
+  - stage: Build
+    jobs:
+      - job: Build
+        displayName: Build
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: NodeTool@0
+            displayName: "Install node ~14"
+            inputs:
+              versionSpec: "14.18.1"
+          - task: Bash@3
+            displayName: "Install packages"
+            inputs:
+              targetType: "inline"
+              script: "yarn"
+              workingDirectory: "{path to app}"
+          # the extra settings here were added to avoid an issue with node memory issues, might not be needed for all build agents.
+          - task: Bash@3
+            displayName: Strapi build
+            inputs:
+              targetType: "inline"
+              script: "node --max-old-space-size=16384 ./node_modules/strapi/bin/strapi build"
+              workingDirectory: "{path to app}"
+          - task: AzureRmWebAppDeployment@4
+            inputs:
+              ConnectionType: 'AzureRM'
+              azureSubscription: '{subscription}'
+              appType: 'webApp'
+              WebAppName: '{app name}'
+              deployToSlotOrASE: true
+              ResourceGroupName: '{resource group}'
+              SlotName: '{optional}'
+              packageForLinux: '{path to app}'
+              enableCustomDeployment: true
+              DeploymentType: 'webDeploy'
